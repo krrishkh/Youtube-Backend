@@ -1,4 +1,4 @@
-import { ApiError } from "../utils/apiError.js"
+import { ApiError } from "../utils/ola.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/apiResponse.js"
@@ -6,21 +6,29 @@ import { User } from "../models/user.models.js"
 import jwt from "jsonwebtoken"
 import mongoose from "mongoose"
 
-const generateAccessAndRefreshToken = async(userId) =>{
+const generateAccessAndRefreshToken = async (userId) => {
     try {
-        const user = await  User.findOne(userId)
-        const accessToken = user.generateAccessToken()
-        const refreshToken = user.generateRefreshToken()
-    
-        user.refreshToken = refreshToken
-        await user.save({ validateBeforeSave: false})
-    
-        return { accessToken, refreshToken}
-        
+        // Find user by ID
+        const user = await User.findById(userId);
+        if (!user) {
+            throw new ApiError(404, "User not found");
+        }
+
+        // Generate tokens
+        const accessToken = user.generateAccessToken();
+        const refreshToken = user.generateRefreshToken();
+
+        // Save refresh token to the user document
+        user.refreshToken = refreshToken;
+        await user.save({ validateBeforeSave: false });
+
+        return { accessToken, refreshToken };
     } catch (error) {
-        throw new ApiError(500, "something went wrong while generaing access and refresh token ")
+        console.error("Error generating tokens:", error);
+        throw new ApiError(500, error.message || "Something went wrong while generating access and refresh tokens");
     }
-}
+};
+
 
 const registerUser = asyncHandler( async (req, res) => {
     const {fullname, email, username ,password} = req.body
@@ -102,8 +110,8 @@ const loginUser = asyncHandler( async (req, res) => {
         throw new ApiError(401, "Invalid User credentials")
     }
 
-    const {accessToken , refreshToken} = generateAccessAndRefreshToken(user._id)
-
+    const {accessToken , refreshToken} = await generateAccessAndRefreshToken(user._id)
+    
     const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
 
     const options = {
@@ -129,6 +137,7 @@ const loginUser = asyncHandler( async (req, res) => {
 })
 
 const logoutUser = asyncHandler(async (req, res) => {
+    console.log(req.user._id);
     await User.findByIdAndUpdate(
         req.user._id,
         {

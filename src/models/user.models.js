@@ -1,6 +1,7 @@
 import mongoose, {Schema} from "mongoose";
 import jwt from "jsonwebtoken"
-import bcrypt from "bcrypt"
+import bcrypt from "bcrypt";
+import { ApiError } from "../utils/ola.js";
 
 const userSchema = new Schema(
     {
@@ -64,30 +65,48 @@ userSchema.methods.isPasswordCorrect = async function(password){
 }
 
 userSchema.methods.generateAccessToken = function(){
-    return jwt.sign(
-        {
-            _id: this._id,
-            email: this.email,
-            username: this.username,
-            fullname: this.fullname
-        },
-        process.env.ACCESS_TOKEN_SECRET,
-        {
-            expiresIn: process.env.ACCESS_TOKEN_EXPIRY
-        }
-    )
+    try {
+        const aToken = jwt.sign(
+            {
+                _id: this._id,
+                email: this.email,
+                username: this.username,
+                fullname: this.fullname
+            },
+            process.env.ACCESS_TOKEN_SECRET,
+            {
+                expiresIn: process.env.ACCESS_TOKEN_EXPIRY
+            }
+        )
+        
+        return aToken
+    } catch (error) {
+        console.log("error while generating access token", error)
+        throw new ApiError(500, "access token generation failed")
+    }
+    
 }
 userSchema.methods.generateRefreshToken = function(){
-    return jwt.sign(
-        {
-            _id: this._id,
-            
-        },
-        process.env.REFRESH_TOKEN_SECRET,
-        {
-            expiresIn: process.env.REFRESH_TOKEN_EXPIRY
-        }
-    )
+    try {
+        const rToken=  jwt.sign(
+            {
+                _id: this._id,
+                
+            },
+            process.env.REFRESH_TOKEN_SECRET,
+            {
+                expiresIn: process.env.REFRESH_TOKEN_EXPIRY
+            }
+        )
+    
+        console.log("refresh token" ,rToken)
+        return rToken
+    } catch (error) {
+        console.log("error while generating refresh token", error)
+        throw new ApiError(500, "refresh token generation failed")
+    }
+
+
 }
 
 export const User = mongoose.model("User", userSchema)
